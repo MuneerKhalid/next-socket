@@ -1,5 +1,6 @@
-"use client"
-import React, { useEffect, useState } from "react";
+// Update the import statement to include the 'io' module from Socket.io-client
+import { useEffect, useState } from "react";
+import io from "socket.io-client";
 import style from "./chat.module.css";
 
 interface IMsgDataTypes {
@@ -9,9 +10,21 @@ interface IMsgDataTypes {
   time: String;
 }
 
-const ChatPage = ({ socket, username, roomId }: any) => {
+const ChatPage = ({ username, roomId }: any) => {
+  const [socket, setSocket] = useState<any>(null); // State to hold the socket instance
   const [currentMsg, setCurrentMsg] = useState("");
   const [chat, setChat] = useState<IMsgDataTypes[]>([]);
+
+  useEffect(() => {
+    // Establish a WebSocket connection to the locally running server
+    const socket = io("http://192.168.0.113:3001"); // Assuming your backend server runs on port 3000 locally
+    setSocket(socket);
+
+    // Clean up function to close the socket connection when the component unmounts
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const sendData = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -20,23 +33,21 @@ const ChatPage = ({ socket, username, roomId }: any) => {
         roomId,
         user: username,
         msg: currentMsg,
-        time:
-          new Date(Date.now()).getHours() +
-          ":" +
-          new Date(Date.now()).getMinutes(),
+        time: `${new Date().getHours()}:${new Date().getMinutes()}`,
       };
       await socket.emit("send_msg", msgData);
       setCurrentMsg("");
     }
   };
 
-
   useEffect(() => {
-    socket.on("receive_msg", (data: IMsgDataTypes) => {
-      setChat((pre) => [...pre, data]);
-    });
+    // Listen for incoming messages from the server
+    if (socket) {
+      socket.on("receive_msg", (data: IMsgDataTypes) => {
+        setChat((prevChat) => [...prevChat, data]);
+      });
+    }
   }, [socket]);
-
 
   return (
     <div className={style.chat_div}>
@@ -51,18 +62,16 @@ const ChatPage = ({ socket, username, roomId }: any) => {
             <div
               key={key}
               className={
-                user == username
-                  ? style.chatProfileRight
-                  : style.chatProfileLeft
+                user === username ? style.chatProfileRight : style.chatProfileLeft
               }
             >
               <span
                 className={style.chatProfileSpan}
-                style={{ textAlign: user == username ? "right" : "left" }}
+                style={{ textAlign: user === username ? "right" : "left" }}
               >
                 {user.charAt(0)}
               </span>
-              <h3 style={{ textAlign: user == username ? "right" : "left" }}>
+              <h3 style={{ textAlign: user === username ? "right" : "left" }}>
                 {msg}
               </h3>
             </div>
@@ -77,7 +86,7 @@ const ChatPage = ({ socket, username, roomId }: any) => {
               placeholder="Type your message.."
               onChange={(e) => setCurrentMsg(e.target.value)}
             />
-            <button className={style.chat_button}>Send</button>
+            <button className={style.chat_button} type="submit">Send</button>
           </form>
         </div>
       </div>
